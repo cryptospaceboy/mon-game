@@ -4,17 +4,14 @@ import {
   BrowserProvider,
   Contract,
   parseEther,
-} from "ethers";
+  JsonRpcProvider,
+} from "ethers"; 
 import LeaderboardABI from "../abis/LeaderboardABI.json";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import "../Dashboard.css";
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
-
-// ✅ Static RPC provider (works even without wallet connected)
-import { JsonRpcProvider } from "ethers";
-const RPC_URL = "https://testnet-rpc.monad.xyz";
-const staticProvider = new JsonRpcProvider(RPC_URL);
+const RPC_URL = "https://testnet-rpc.monad.xyz"; // 🔥 fallback provider
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -22,14 +19,26 @@ const Dashboard = () => {
   const [registered, setRegistered] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
   const [highScore, setHighScore] = useState(0);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState(null);
 
   const { login, logout, authenticated, user } = usePrivy();
-  const { wallets } = useWallets();
+  const { wallets } = useWallets(); 
 
-  // ✅ Fetch leaderboard always from static provider
+  // ✅ Fetch leaderboard (always visible)
   const fetchLeaderboard = async () => {
+    setLoadingLeaderboard(true);
+    setLeaderboardError(null);
+
     try {
-      const contract = new Contract(CONTRACT_ADDRESS, LeaderboardABI, staticProvider);
+      let provider;
+      if (window.ethereum) {
+        provider = new BrowserProvider(window.ethereum);
+      } else {
+        provider = new JsonRpcProvider(RPC_URL); // read-only
+      }
+
+      const contract = new Contract(CONTRACT_ADDRESS, LeaderboardABI, provider);
 
       const players = await contract.getPlayers();
       let scores = [];
@@ -44,30 +53,25 @@ const Dashboard = () => {
 
       scores = scores.sort((a, b) => b.score - a.score).slice(0, 10);
       setLeaderboard(scores);
+
+      console.log("✅ Leaderboard fetched:", scores);
     } catch (err) {
-      console.error("Error fetching leaderboard:", err);
+      console.error("❌ Error fetching leaderboard:", err);
+      setLeaderboardError("Failed to load leaderboard. Please try again.");
+    } finally {
+      setLoadingLeaderboard(false);
     }
   };
 
-  // ✅ Initial fetch
   useEffect(() => {
     fetchLeaderboard();
   }, []);
 
-  // ✅ Auto refresh leaderboard every 30s if on leaderboard tab
-  useEffect(() => {
-    let interval;
-    if (activeTab === "leaderboard") {
-      interval = setInterval(fetchLeaderboard, 30000);
-    }
-    return () => clearInterval(interval);
-  }, [activeTab]);
-
-  // ✅ Get signer for transactions
+  // ✅ Get signer
   const getSigner = async () => {
     if (!authenticated || !user) throw new Error("Not logged in with Game ID");
 
-    const embeddedWallet = wallets.find((w) => w.walletClientType === "privy");
+    const embeddedWallet = wallets.find(w => w.walletClientType === "privy");
     if (embeddedWallet) {
       const provider = new BrowserProvider(await embeddedWallet.getEthereumProvider());
       return await provider.getSigner();
@@ -81,7 +85,7 @@ const Dashboard = () => {
     throw new Error("No wallet provider found");
   };
 
-  // ✅ Check registration + high score when user logs in
+  // ✅ Sync registration + high score
   useEffect(() => {
     const checkRegistration = async () => {
       if (authenticated) {
@@ -104,7 +108,7 @@ const Dashboard = () => {
     checkRegistration();
   }, [authenticated, user, wallets]);
 
-  // ✅ Register player
+  // Register
   const handleRegister = async () => {
     try {
       if (!walletAddress || registered) return;
@@ -124,7 +128,7 @@ const Dashboard = () => {
     }
   };
 
-  // ✅ Submit new score
+  // ✅ Add new score
   const addScore = async (score) => {
     if (!walletAddress) return;
 
@@ -147,7 +151,6 @@ const Dashboard = () => {
     }
   };
 
-  // ✅ Tab renderer
   const renderContent = () => {
     switch (activeTab) {
       case "dashboard":
@@ -172,8 +175,11 @@ const Dashboard = () => {
         return (
           <div className="leaderboard">
             <h2>🏆 On-Chain Leaderboard</h2>
-            <button onClick={fetchLeaderboard}>🔄 Refresh</button>
-            {leaderboard.length > 0 ? (
+            {loadingLeaderboard ? (
+              <p>⏳ Loading leaderboard...</p>
+            ) : leaderboardError ? (
+              <p style={{ color: "red" }}>{leaderboardError}</p>
+            ) : leaderboard.length > 0 ? (
               <ol>
                 {leaderboard.map((player, index) => {
                   let medal = "";
