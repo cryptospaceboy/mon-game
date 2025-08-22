@@ -196,3 +196,20 @@ body {
   border-radius: 5px;
   cursor: pointer;
 }
+
+/* ✅ Fix leaderboard visibility only on small screens */
+@media (max-width: 768px) {
+  .leaderboard {
+    overflow-x: auto;   /* allow scrolling if content overflows */
+    font-size: 14px;    /* slightly smaller text for phones */
+  }
+
+  .leaderboard ol {
+    padding-left: 20px; /* ensure numbers are visible */
+  }
+
+  .leaderboard li {
+    word-break: break-word; /* prevent wallet addresses from breaking layout */
+    margin-bottom: 6px;
+  }
+}
