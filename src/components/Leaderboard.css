@@ -1,0 +1,75 @@
+.spinner {
+  border: 6px solid #f3f3f3; /* Light grey */
+  border-top: 6px solid #6c5ce7; /* Purple color */
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 20px auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Spinner */
+.spinner {
+  border: 6px solid #f3f3f3;
+  border-top: 6px solid #6c5ce7;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 20px auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Leaderboard Table */
+.leaderboard table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.leaderboard th, .leaderboard td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+}
+
+.leaderboard tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.leaderboard tr:hover {
+  background-color: #f1f1f1;
+}
+
+.leaderboard th {
+  background-color: #6c5ce7;
+  color: white;
+}
+
+/* Top 3 Highlights */
+.gold {
+  background-color: #fff8dc; /* light gold background */
+  font-weight: bold;
+  color: #daa520; /* golden text */
+}
+
+.silver {
+  background-color: #f8f8f8; /* light silver background */
+  font-weight: bold;
+  color: #808080; /* silver text */
+}
+
+.bronze {
+  background-color: #fbe7d6; /* light bronze background */
+  font-weight: bold;
+  color: #cd7f32; /* bronze text */
+}

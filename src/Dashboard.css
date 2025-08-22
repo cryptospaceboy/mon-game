@@ -1,0 +1,145 @@
+/* General Layout */
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #2a003f, #6a0dad, #8a2be2);
+  font-family: 'Poppins', sans-serif;
+  color: white;
+  padding: 20px;
+}
+
+/* Title */
+.dashboard-title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-bottom: 20px;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+/* Wallet input section */
+.wallet-section {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 25px;
+}
+
+.wallet-input {
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  outline: none;
+  width: 280px;
+  font-size: 1rem;
+}
+
+.wallet-button {
+  padding: 12px 18px;
+  border: none;
+  border-radius: 8px;
+  background: #8a2be2;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.wallet-button:hover {
+  background: #a94cf4;
+}
+
+/* Navigation buttons (Profile, History, Leaderboard) */
+.nav-buttons {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.nav-button {
+  padding: 10px 18px;
+  border: 2px solid #8a2be2;
+  border-radius: 6px;
+  background: transparent;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.nav-button:hover {
+  background: #8a2be2;
+  transform: scale(1.05);
+}
+
+/* Game Section */
+.game-section {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 0 15px rgba(0,0,0,0.6);
+  margin-bottom: 30px;
+}
+
+/* Leaderboard */
+.leaderboard {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 20px;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 600px;
+  text-align: center;
+}
+
+.leaderboard h2 {
+  margin-bottom: 15px;
+  font-size: 1.5rem;
+}
+
+.leaderboard table {
+  width: 100%;
+  border-collapse: collapse;
+  color: white;
+}
+
+.leaderboard th, .leaderboard td {
+  padding: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+
+.leaderboard th {
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  color: #d1b3ff;
+}
+
+.wallet-section {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.wallet-section span {
+  font-size: 14px;
+  color: #a855f7; /* purple */
+  font-weight: bold;
+  background: #1f1f1f;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.pause-btn {
+  margin-bottom: 10px;
+  padding: 6px 12px;
+  font-size: 14px;
+  background: #444;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.pause-btn:hover {
+  background: #666;
+}
