@@ -6,7 +6,7 @@ import {
   parseEther,
 } from "ethers"; 
 import LeaderboardABI from "../abis/LeaderboardABI.json";
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import "../Dashboard.css";
 
 
@@ -18,10 +18,11 @@ const Dashboard = () => {
   const [walletAddress, setWalletAddress] = useState(null);
   const [registered, setRegistered] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
-  const [highScore, setHighScore] = useState(0); // ✅ track on-chain high score
+  const [highScore, setHighScore] = useState(0);
 
 
   const { login, logout, authenticated, user, ready } = usePrivy();
+  const { wallets } = useWallets(); // ✅ new Privy way
 
 
   // Fetch leaderboard
@@ -56,39 +57,62 @@ const Dashboard = () => {
   }, []);
 
 
-  // Get signer from Privy embedded wallet
+  // ✅ Get signer from Privy properly
   const getSigner = async () => {
-    if (!authenticated || !user?.wallet?.address) {
+    if (!authenticated || !user) {
       throw new Error("Not logged in with Game ID");
     }
-    const provider = new BrowserProvider(user.wallet);
-    return await provider.getSigner();
+
+
+    // Look for Privy embedded wallet first
+    const embeddedWallet = wallets.find(w => w.walletClientType === "privy");
+
+
+    if (embeddedWallet) {
+      const provider = new BrowserProvider(await embeddedWallet.getEthereumProvider());
+      return await provider.getSigner();
+    }
+
+
+    // fallback to injected wallet (MetaMask)
+    if (window.ethereum) {
+      const provider = new BrowserProvider(window.ethereum);
+      return await provider.getSigner();
+    }
+
+
+    throw new Error("No wallet provider found");
   };
 
 
-  // Sync registration + high score after login
+  // Sync registration + high score
   useEffect(() => {
     const checkRegistration = async () => {
-      if (authenticated && user?.wallet?.address) {
-        setWalletAddress(user.wallet.address);
+      if (authenticated) {
+        // pick first wallet (privy or injected)
+        const mainWallet = wallets[0] || user?.wallet;
+        if (!mainWallet) return;
+
+
+        setWalletAddress(mainWallet.address);
 
 
         try {
           const signer = await getSigner();
           const contract = new Contract(CONTRACT_ADDRESS, LeaderboardABI, signer);
-          const player = await contract.getPlayer(user.wallet.address);
+          const player = await contract.getPlayer(mainWallet.address);
           setRegistered(player[1]);
-          setHighScore(Number(player[0])); // ✅ store on-chain high score
+          setHighScore(Number(player[0]));
         } catch (err) {
           console.error("Error checking registration:", err);
         }
       }
     };
     checkRegistration();
-  }, [authenticated, user]);
+  }, [authenticated, user, wallets]);
 
 
-  // Register for leaderboard
+  // Register
   const handleRegister = async () => {
     try {
       if (!walletAddress || registered) return;
@@ -132,7 +156,7 @@ const Dashboard = () => {
 
 
     if (registered) {
-      if (score > highScore) {  // ✅ only submit if it beats current high score
+      if (score > highScore) {
         try {
           const signer = await getSigner();
           const contract = new Contract(CONTRACT_ADDRESS, LeaderboardABI, signer);
@@ -143,7 +167,7 @@ const Dashboard = () => {
 
 
           console.log("✅ New high score submitted:", score);
-          setHighScore(score); // ✅ update local high score
+          setHighScore(score);
           fetchLeaderboard();
         } catch (err) {
           console.error("Error submitting score:", err);
@@ -191,7 +215,7 @@ const Dashboard = () => {
 
 
                   return (
-                    <li key={index}>
+                    <li key={player.address}>
                       {player.address.slice(0, 6)}...{player.address.slice(-4)} — {player.score}
                       {medal}
                     </li>
@@ -210,7 +234,7 @@ const Dashboard = () => {
             <div className="profile-card">
               <p><strong>Wallet:</strong> {walletAddress || "Not connected"}</p>
               <p><strong>Status:</strong> {registered ? "✅ Registered" : "❌ Not Registered"}</p>
-              <p><strong>Highest Score:</strong> {highScore}</p> {/* ✅ show player’s high score */}
+              <p><strong>Highest Score:</strong> {highScore}</p>
               <p><strong>Games Played:</strong> {leaderboard.length}</p>
             </div>
           </div>
