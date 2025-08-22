@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@privy-io/react-auth": "^2.21.4",
     "dotenv": "^17.2.1",
     "ethers": "^6.15.0",
     "phaser": "^3.90.0",

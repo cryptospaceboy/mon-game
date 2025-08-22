@@ -23,7 +23,7 @@ export default function GameCanvas({ onGameOver }) { // 👈 allow parent to rec
   const gameRef = useRef(null);
   const timerRef = useRef(null);
 
-  const CONTRACT_ADDRESS = "0x72fe344E7097cE94fc0F6955eC080Fa40cc79008"; // 👈 replace with deployed contract
+const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
 
   // ---- NEW: function to submit score on-chain ----
   async function submitScore(finalScore) {

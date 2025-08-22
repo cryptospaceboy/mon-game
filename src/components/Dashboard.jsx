@@ -4,24 +4,32 @@ import {
   BrowserProvider,
   Contract,
   parseEther,
-} from "ethers"; // ✅ ethers v6
+} from "ethers"; 
 import LeaderboardABI from "../abis/LeaderboardABI.json";
+import { usePrivy } from "@privy-io/react-auth";
 import "../Dashboard.css";
 
-const CONTRACT_ADDRESS = "0x72fe344E7097cE94fc0F6955eC080Fa40cc79008";
+
+const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
+
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [walletAddress, setWalletAddress] = useState(null);
   const [registered, setRegistered] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [highScore, setHighScore] = useState(0); // ✅ track on-chain high score
 
-  // 🔥 Fetch leaderboard from blockchain
+
+  const { login, logout, authenticated, user, ready } = usePrivy();
+
+
+  // Fetch leaderboard
   const fetchLeaderboard = async () => {
-    if (!window.ethereum) return;
     try {
       const provider = new BrowserProvider(window.ethereum);
       const contract = new Contract(CONTRACT_ADDRESS, LeaderboardABI, provider);
+
 
       const players = await contract.getPlayers();
       let scores = [];
@@ -34,6 +42,7 @@ const Dashboard = () => {
         });
       }
 
+
       scores = scores.sort((a, b) => b.score - a.score).slice(0, 10);
       setLeaderboard(scores);
     } catch (err) {
@@ -41,86 +50,61 @@ const Dashboard = () => {
     }
   };
 
+
   useEffect(() => {
     fetchLeaderboard();
   }, []);
 
-  // Function to add new score (from GameCanvas)
-  const addScore = async (score) => {
-    let playerName = walletAddress
-      ? walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4)
-      : "Guest";
 
-    const newEntry = { name: playerName, score, date: new Date().toLocaleString() };
-
-    const updated = [...leaderboard, newEntry]
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
-
-    setLeaderboard(updated);
-
-    // ✅ Only registered users can push scores on-chain
-    if (walletAddress && registered) {
-      try {
-        const provider = new BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
-        const contract = new Contract(CONTRACT_ADDRESS, LeaderboardABI, signer);
-
-        const tx = await contract.updateScore(score);
-        await tx.wait();
-        console.log("Score submitted on-chain:", score);
-        fetchLeaderboard();
-      } catch (err) {
-        console.error("Error submitting score:", err);
-      }
-    } else if (walletAddress && !registered) {
-      console.log("⚠️ Not registered — score not submitted.");
+  // Get signer from Privy embedded wallet
+  const getSigner = async () => {
+    if (!authenticated || !user?.wallet?.address) {
+      throw new Error("Not logged in with Game ID");
     }
+    const provider = new BrowserProvider(user.wallet);
+    return await provider.getSigner();
   };
 
-  // ✅ Connect wallet
-  const connectWallet = async () => {
-    try {
-      if (!window.ethereum) {
-        alert("MetaMask (or another wallet) is not installed!");
-        return;
+
+  // Sync registration + high score after login
+  useEffect(() => {
+    const checkRegistration = async () => {
+      if (authenticated && user?.wallet?.address) {
+        setWalletAddress(user.wallet.address);
+
+
+        try {
+          const signer = await getSigner();
+          const contract = new Contract(CONTRACT_ADDRESS, LeaderboardABI, signer);
+          const player = await contract.getPlayer(user.wallet.address);
+          setRegistered(player[1]);
+          setHighScore(Number(player[0])); // ✅ store on-chain high score
+        } catch (err) {
+          console.error("Error checking registration:", err);
+        }
       }
+    };
+    checkRegistration();
+  }, [authenticated, user]);
 
-      const accounts = await window.ethereum.request({
-        method: "eth_requestAccounts",
-      });
-      const address = accounts[0];
-      setWalletAddress(address);
 
-      const provider = new BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const contract = new Contract(CONTRACT_ADDRESS, LeaderboardABI, signer);
-
-      const player = await contract.getPlayer(address);
-      setRegistered(player[1]);
-
-      fetchLeaderboard();
-    } catch (err) {
-      console.error("Wallet connection failed:", err);
-      alert("❌ Wallet connection failed: " + (err.message || err));
-    }
-  };
-
-  // ✅ One-click register
+  // Register for leaderboard
   const handleRegister = async () => {
     try {
       if (!walletAddress || registered) return;
 
-      const provider = new BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
+
+      const signer = await getSigner();
       const contract = new Contract(CONTRACT_ADDRESS, LeaderboardABI, signer);
+
 
       const tx = await contract.register({
         value: parseEther("0.1"),
       });
       await tx.wait();
 
-      alert("✅ You are now registered to the Leaderboard!");
+
+      alert("✅ You are now registered!");
       setRegistered(true);
       fetchLeaderboard();
     } catch (err) {
@@ -129,10 +113,49 @@ const Dashboard = () => {
     }
   };
 
-  const disconnectWallet = () => {
-    setWalletAddress(null);
-    setRegistered(false);
+
+  // Add new score
+  const addScore = async (score) => {
+    if (!walletAddress) return;
+
+
+    const playerName = walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4);
+
+
+    const newEntry = { name: playerName, score, date: new Date().toLocaleString() };
+    const updated = [...leaderboard, newEntry]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+
+
+    setLeaderboard(updated);
+
+
+    if (registered) {
+      if (score > highScore) {  // ✅ only submit if it beats current high score
+        try {
+          const signer = await getSigner();
+          const contract = new Contract(CONTRACT_ADDRESS, LeaderboardABI, signer);
+
+
+          const tx = await contract.updateScore(score);
+          await tx.wait();
+
+
+          console.log("✅ New high score submitted:", score);
+          setHighScore(score); // ✅ update local high score
+          fetchLeaderboard();
+        } catch (err) {
+          console.error("Error submitting score:", err);
+        }
+      } else {
+        console.log("ℹ️ Score not higher than current high score, not submitted on-chain.");
+      }
+    } else {
+      console.log("⚠️ Not registered — score not saved on-chain");
+    }
   };
+
 
   const renderContent = () => {
     switch (activeTab) {
@@ -148,37 +171,38 @@ const Dashboard = () => {
                 >
                   register (0.1 MON)
                 </span>{" "}
-                to save scores to the leaderboard.
+                to save scores.
               </p>
             ) : null}
             <Game onGameOver={addScore} />
           </div>
         );
-    case "leaderboard":
-  return (
-    <div className="leaderboard">
-      <h2>🏆 On-Chain Leaderboard</h2>
-      {leaderboard.length > 0 ? (
-        <ol>
-          {leaderboard.map((player, index) => {
-            let medal = "";
-            if (index === 0) medal = " 🥇🏅"; // 1st place gets gold + extra ribbon
-            else if (index === 1) medal = " 🥈"; // 2nd place gets silver
-            else if (index === 2) medal = " 🥉"; // 3rd place gets bronze
+      case "leaderboard":
+        return (
+          <div className="leaderboard">
+            <h2>🏆 On-Chain Leaderboard</h2>
+            {leaderboard.length > 0 ? (
+              <ol>
+                {leaderboard.map((player, index) => {
+                  let medal = "";
+                  if (index === 0) medal = " 🥇";
+                  else if (index === 1) medal = " 🥈";
+                  else if (index === 2) medal = " 🥉";
 
-            return (
-              <li key={index}>
-                {player.address.slice(0, 6)}...{player.address.slice(-4)} — {player.score}
-                {medal}
-              </li>
-            );
-          })}
-        </ol>
-      ) : (
-        <p>No players yet.</p>
-      )}
-    </div>
-  );
+
+                  return (
+                    <li key={index}>
+                      {player.address.slice(0, 6)}...{player.address.slice(-4)} — {player.score}
+                      {medal}
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : (
+              <p>No players yet.</p>
+            )}
+          </div>
+        );
       case "profile":
         return (
           <div className="profile">
@@ -186,26 +210,9 @@ const Dashboard = () => {
             <div className="profile-card">
               <p><strong>Wallet:</strong> {walletAddress || "Not connected"}</p>
               <p><strong>Status:</strong> {registered ? "✅ Registered" : "❌ Not Registered"}</p>
-              <p><strong>Highest Score:</strong> {leaderboard.length > 0 ? leaderboard[0].score : 0}</p>
+              <p><strong>Highest Score:</strong> {highScore}</p> {/* ✅ show player’s high score */}
               <p><strong>Games Played:</strong> {leaderboard.length}</p>
             </div>
-          </div>
-        );
-      case "history":
-        return (
-          <div className="history">
-            <h2>📜 Game History</h2>
-            {leaderboard.length > 0 ? (
-              <ul>
-                {leaderboard.map((game, index) => (
-                  <li key={index}>
-                    {game.address.slice(0, 6)}...{game.address.slice(-4)} scored {game.score}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>No games played yet.</p>
-            )}
           </div>
         );
       default:
@@ -213,21 +220,25 @@ const Dashboard = () => {
     }
   };
 
+
   return (
     <div className="dashboard">
       <nav className="nav-bar">
         <button onClick={() => setActiveTab("dashboard")}>Dashboard</button>
         <button onClick={() => setActiveTab("leaderboard")}>Leaderboard</button>
         <button onClick={() => setActiveTab("profile")}>Profile</button>
-        <button onClick={() => setActiveTab("history")}>History</button>
       </nav>
 
-      {/* Wallet Connect/Disconnect Section */}
+
+      {/* 🔥 Login with Game ID only */}
       <div className="wallet-connect">
-        {walletAddress ? (
+        {!authenticated ? (
+          <button onClick={login}>Login with Monad Games ID</button>
+        ) : (
           <div>
+            <p>👤 Logged in with Game ID</p>
             <p>
-              ✅ Connected: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+              Wallet: {walletAddress ? walletAddress.slice(0, 6) + "..." + walletAddress.slice(-4) : "—"}
             </p>
             <p>
               Status:{" "}
@@ -242,16 +253,16 @@ const Dashboard = () => {
                 </span>
               )}
             </p>
-            <button onClick={disconnectWallet}>Disconnect</button>
+            <button onClick={logout}>Logout</button>
           </div>
-        ) : (
-          <button onClick={connectWallet}>Connect Wallet</button>
         )}
       </div>
+
 
       <div className="content">{renderContent()}</div>
     </div>
   );
 };
+
 
 export default Dashboard;
